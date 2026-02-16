@@ -9,6 +9,8 @@ object Main:
 
   private val logger = LoggerFactory.getLogger("topwords")
 
+  def main(args: Array[String]): Unit = Parser(this).runOrExit(args)
+
   @main
   def run(
     @arg(name = "cloud-size", short = 'c')
