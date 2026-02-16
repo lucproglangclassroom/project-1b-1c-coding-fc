@@ -3,40 +3,40 @@ package edu.luc.cs.cs371.topwords.core
 import scala.collection.mutable
 
 class WordStreamProcessor(
-  howMany: Int,
-  minLength: Int,
-  windowSize: Int,
-  everyKSteps: Int,
-  minFrequency: Int,
-  ignoreCase: Boolean,
-  observer: WordCloudObserver
+    cloudSize: Int,
+    minLength: Int,
+    windowSize: Int,
+    everyKSteps: Int,
+    minFrequency: Int,
+    ignoreCase: Boolean,
+    observer: WordCloudObserver
 ):
-
-  require(howMany > 0)
-  require(windowSize > 0)
-  require(everyKSteps > 0)
-
-  private val topWords = TopWords(howMany)
   private val window = mutable.Queue.empty[String]
+  private val counts = mutable.Map.empty[String, Int]
+  private var steps = 0
 
-  private var stepCount = 0
+  def processWord(wordRaw: String): Unit =
+    val word = if ignoreCase then wordRaw.toLowerCase else wordRaw
 
-  def processWord(word: String): Unit =
-    val normalized =
-      if ignoreCase then word.toLowerCase
-      else word
+    if word.length >= minLength then
+      // add word to sliding window
+      window.enqueue(word)
+      counts(word) = counts.getOrElse(word, 0) + 1
 
-    if normalized.length >= minLength then
-      window.enqueue(normalized)
-      topWords.onWordAdded(normalized)
-      stepCount += 1
-
+      // remove old words if window exceeds windowSize
       if window.size > windowSize then
         val removed = window.dequeue()
-        topWords.onWordRemoved(removed)
+        counts(removed) = counts(removed) - 1
+        if counts(removed) <= 0 then counts.remove(removed): Unit
 
-      if window.size == windowSize && stepCount % everyKSteps == 0 then
+      // increment step count
+      steps += 1
+
+      // emit cloud every everyKSteps
+      if steps % everyKSteps == 0 then
         val cloud =
-          topWords.topK().filter(_._2 >= minFrequency)
-
+          counts.toSeq
+            .filter(_._2 >= minFrequency)
+            .sortBy { case (w, c) => (-c, w) }
+            .take(cloudSize)
         observer.onCloudUpdated(cloud)
