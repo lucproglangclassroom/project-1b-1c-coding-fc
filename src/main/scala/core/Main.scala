@@ -9,7 +9,8 @@ object Main:
 
   private val logger = LoggerFactory.getLogger("topwords")
 
-  def main(args: Array[String]): Unit = Parser(this).runOrExit(args)
+  def main(args: Array[String]): Unit =
+    Parser(this).runOrExit(args)
 
   @main
   def run(
@@ -36,27 +37,27 @@ object Main:
       s"howMany=$cloudSize minLength=$minLength windowSize=$windowSize everyKSteps=$everyKSteps minFrequency=$minFrequency ignoreCase=$ignoreCase"
     )
 
-    val observer = ConsoleObserver()
-
-    val processor =
-      WordStreamProcessor(
+    val cfg =
+      WordStreamProcessor.Config(
         cloudSize,
         minLength,
         windowSize,
         everyKSteps,
         minFrequency,
-        ignoreCase,
-        observer
+        ignoreCase
       )
-
-    val lines = Source.stdin.getLines()
-
-    import scala.language.unsafeNulls
 
     val words =
-      lines.flatMap(line =>
-        line.split("(?U)[^\\p{Alpha}0-9']+")
-      )
+      Source.stdin
+        .getLines()
+        .flatMap(_.split("(?U)[^\\p{Alpha}0-9']+"))
+        .filter(_.nonEmpty)
 
-    for word <- words do
-      processor.processWord(word)
+    WordStreamProcessor
+      .clouds(words, cfg)
+      .foreach { cloud =>
+        try
+          println(TopWordsCounter.formatCloud(cloud))
+        catch
+          case _: java.io.IOException => ()
+      }
